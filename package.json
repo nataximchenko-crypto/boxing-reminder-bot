@@ -1,0 +1,11 @@
+{
+  "name": "boxing-reminder-bot",
+  "version": "1.0.0",
+  "description": "Telegram-бот для напоминания клиентам школы бокса (Батуми, тренер Виктор) о разминке перед тренировкой",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bot": "node --env-file=.env src/bot.mjs",
+    "remind": "node --env-file=.env src/send-reminder.mjs"
+  }
+}
