@@ -4,8 +4,8 @@ import path from "path";
 const SCHEDULE_FILE = path.join(process.cwd(), "schedule.csv");
 const SENT_FILE = path.join(process.cwd(), "sent-reminders.json");
 
-// Напоминание уходит накануне вечером, в 20:00.
-const REMINDER_HOUR_BEFORE = 20;
+// Напоминание уходит за этот интервал до тренировки.
+const REMINDER_BEFORE_MS = 2 * 60 * 60 * 1000;
 
 function parseDateTime(dateStr, timeStr) {
   const [day, month, year] = dateStr.split(".").map(Number);
@@ -70,8 +70,8 @@ function formatDayText(date) {
 }
 
 // Возвращает напоминания, которые пора отправить прямо сейчас:
-// время накануне (20:00) уже наступило, тренировка ещё не прошла,
-// и это напоминание ещё не отправлялось.
+// до тренировки осталось не больше REMINDER_BEFORE_MS, тренировка ещё
+// не прошла, и это напоминание ещё не отправлялось.
 export function getDueReminders() {
   const rows = readScheduleRows();
   const sent = readSent();
@@ -84,9 +84,7 @@ export function getDueReminders() {
     }
 
     const trainingAt = parseDateTime(row.date, row.time);
-    const reminderAt = new Date(trainingAt);
-    reminderAt.setDate(reminderAt.getDate() - 1);
-    reminderAt.setHours(REMINDER_HOUR_BEFORE, 0, 0, 0);
+    const reminderAt = new Date(trainingAt.getTime() - REMINDER_BEFORE_MS);
 
     const key = `${row.name}|${row.date}|${row.time}`;
     if (sent[key]) continue;
