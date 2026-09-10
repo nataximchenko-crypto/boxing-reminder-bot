@@ -6,7 +6,7 @@
 import { createTelegramClient } from "./telegram.mjs";
 import { registerClient, isChatRegistered, findClientChatId } from "./clients.mjs";
 import { buildReminderMessage } from "./template.mjs";
-import { getDueReminders, markReminderSent } from "./schedule.mjs";
+import { getDueReminders, markReminderSent, getMissedReminders, markReminderMissed } from "./schedule.mjs";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -37,12 +37,25 @@ async function sendDueReminders() {
   }
 }
 
+// Тренировка уже прошла, а напоминание не ушло (бот не работал, была
+// ошибка сети и т.п.) — слать его сейчас поздно и бессмысленно, но
+// нужно громко сообщить об этом, а не тихо потерять.
+function reportMissedReminders() {
+  for (const missed of getMissedReminders()) {
+    console.error(
+      `ПРОПУЩЕНО автонапоминание: «${missed.name}», тренировка была ${missed.date} в ${missed.time} — напоминание не отправлено (например, бот не был запущен или пропала сеть).`,
+    );
+    markReminderMissed(missed.key);
+  }
+}
+
 console.log("Бот запущен, жду сообщения от новых клиентов и слежу за schedule.csv...");
 
 let offset = 0;
 
 while (true) {
   await sendDueReminders();
+  reportMissedReminders();
 
   let updates;
   try {

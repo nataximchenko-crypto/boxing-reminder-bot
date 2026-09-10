@@ -57,10 +57,22 @@ function readSent() {
   return JSON.parse(fs.readFileSync(SENT_FILE, "utf-8"));
 }
 
-export function markReminderSent(key) {
+function writeSentEntry(key, value) {
   const sent = readSent();
-  sent[key] = true;
+  sent[key] = value;
   fs.writeFileSync(SENT_FILE, JSON.stringify(sent, null, 2));
+}
+
+export function markReminderSent(key) {
+  writeSentEntry(key, true);
+}
+
+// Отмечает напоминание как "пропущено": окно отправки уже закрылось
+// (тренировка прошла), а отправлено оно не было — например, бот в этот
+// момент не работал или была ошибка сети. Чтобы это не терялось молча,
+// bot.mjs логирует такие случаи явной ошибкой.
+export function markReminderMissed(key) {
+  writeSentEntry(key, "missed");
 }
 
 function formatDayText(date) {
@@ -71,7 +83,7 @@ function formatDayText(date) {
 
 // Возвращает напоминания, которые пора отправить прямо сейчас:
 // до тренировки осталось не больше REMINDER_BEFORE_MS, тренировка ещё
-// не прошла, и это напоминание ещё не отправлялось.
+// не прошла, и это напоминание ещё не отправлялось и не помечено пропущенным.
 export function getDueReminders() {
   const rows = readScheduleRows();
   const sent = readSent();
@@ -100,4 +112,31 @@ export function getDueReminders() {
   }
 
   return due;
+}
+
+// Строки, для которых тренировка уже прошла, а напоминание так и не было
+// отправлено (и ещё не помечено пропущенным) — сигнал, что что-то пошло
+// не так (бот не работал, сеть отвалилась и т.п.). Пора уже слать поздно,
+// но и молчать об этом нельзя.
+export function getMissedReminders() {
+  const rows = readScheduleRows();
+  const sent = readSent();
+  const now = new Date();
+  const missed = [];
+
+  for (const row of rows) {
+    if (!row.name || !row.date || !row.time) {
+      continue;
+    }
+
+    const trainingAt = parseDateTime(row.date, row.time);
+    const key = `${row.name}|${row.date}|${row.time}`;
+
+    if (sent[key]) continue;
+    if (now < trainingAt) continue;
+
+    missed.push({ key, name: row.name, date: row.date, time: row.time });
+  }
+
+  return missed;
 }
