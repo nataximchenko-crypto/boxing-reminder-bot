@@ -13,20 +13,41 @@ function parseDateTime(dateStr, timeStr) {
   return new Date(year, month - 1, day, hour, minute);
 }
 
+// Строка данных: "Имя, ДД.ММ.ГГГГ, ЧЧ:ММ". Заголовок (если он есть)
+// под этот формат не подходит и просто пропускается — можно вести файл
+// как с заголовком, так и без него.
+const ROW_PATTERN = /^(.+?),\s*(\d{1,2}\.\d{1,2}\.\d{4}),\s*(\d{1,2}:\d{2})$/;
+
+function decodeScheduleFile(buffer) {
+  const utf8Text = buffer.toString("utf-8");
+  if (!utf8Text.includes("�")) {
+    return utf8Text;
+  }
+  // Файл сохранён не в UTF-8 (например, Notepad по умолчанию в ANSI) —
+  // большинство таких файлов на русской Windows на самом деле в Windows-1251.
+  return new TextDecoder("windows-1251").decode(buffer);
+}
+
 function readScheduleRows() {
   if (!fs.existsSync(SCHEDULE_FILE)) {
     return [];
   }
-  const lines = fs
-    .readFileSync(SCHEDULE_FILE, "utf-8")
+  const text = decodeScheduleFile(fs.readFileSync(SCHEDULE_FILE));
+  const lines = text
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
 
-  return lines.slice(1).map((line) => {
-    const [name, date, time] = line.split(",").map((part) => part.trim());
-    return { name, date, time };
-  });
+  const rows = [];
+  for (const line of lines) {
+    const match = line.match(ROW_PATTERN);
+    if (!match) {
+      continue;
+    }
+    const [, name, date, time] = match;
+    rows.push({ name: name.trim(), date, time });
+  }
+  return rows;
 }
 
 function readSent() {
