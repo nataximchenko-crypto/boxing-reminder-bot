@@ -1,3 +1,5 @@
 node_modules
 .env
 clients.json
+schedule.csv
+sent-reminders.json

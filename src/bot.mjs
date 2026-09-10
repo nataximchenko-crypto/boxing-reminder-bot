@@ -1,8 +1,12 @@
-// Слушает сообщения в Telegram и регистрирует новых клиентов:
-// первый, кто напишет боту, сохраняется по тексту своего сообщения как имя.
-// Запуск: npm run bot (должен работать постоянно, пока клиенты могут писать боту).
+// Слушает сообщения в Telegram (регистрирует новых клиентов) и параллельно
+// проверяет schedule.csv — если для какой-то тренировки пора слать
+// напоминание, отправляет его автоматически.
+// Запуск: npm run bot (должен работать постоянно, иначе автонапоминания
+// и регистрация новых клиентов не будут работать).
 import { createTelegramClient } from "./telegram.mjs";
-import { registerClient, isChatRegistered } from "./clients.mjs";
+import { registerClient, isChatRegistered, findClientChatId } from "./clients.mjs";
+import { buildReminderMessage } from "./template.mjs";
+import { getDueReminders, markReminderSent } from "./schedule.mjs";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -12,11 +16,34 @@ if (!token) {
 
 const telegram = createTelegramClient(token);
 
-console.log("Бот запущен, жду сообщения от новых клиентов...");
+async function sendDueReminders() {
+  for (const reminder of getDueReminders()) {
+    const chatId = findClientChatId(reminder.name);
+    if (!chatId) {
+      console.error(
+        `В schedule.csv есть тренировка для «${reminder.name}», но такого клиента нет среди зарегистрированных — напоминание не отправлено.`,
+      );
+      continue;
+    }
+
+    try {
+      const text = buildReminderMessage(reminder.name, reminder.dayText, reminder.timeText);
+      await telegram.sendMessage(chatId, text);
+      markReminderSent(reminder.key);
+      console.log(`Автонапоминание отправлено: ${reminder.name} (${reminder.dayText}, ${reminder.timeText}).`);
+    } catch (error) {
+      console.error(`Не удалось отправить автонапоминание для «${reminder.name}»:`, error.message);
+    }
+  }
+}
+
+console.log("Бот запущен, жду сообщения от новых клиентов и слежу за schedule.csv...");
 
 let offset = 0;
 
 while (true) {
+  await sendDueReminders();
+
   let updates;
   try {
     updates = await telegram.getUpdates(offset);
