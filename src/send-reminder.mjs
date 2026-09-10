@@ -1,15 +1,15 @@
 // Ручная отправка напоминания одному клиенту.
-// Запуск: npm run remind -- "Имя клиента" "день, время"
-// Пример: npm run remind -- "Иван" "суббота, 18:00"
+// Запуск: npm run remind -- "Имя клиента" "день" "время"
+// Пример: npm run remind -- "Иван" "суббота" "18:00"
 import { createTelegramClient } from "./telegram.mjs";
 import { buildReminderMessage } from "./template.mjs";
 import { findClientChatId } from "./clients.mjs";
 
-const [, , name, whenText] = process.argv;
+const [, , name, day, time] = process.argv;
 
-if (!name || !whenText) {
-  console.error('Использование: npm run remind -- "Имя клиента" "день, время"');
-  console.error('Пример: npm run remind -- "Иван" "суббота, 18:00"');
+if (!name || !day || !time) {
+  console.error('Использование: npm run remind -- "Имя клиента" "день" "время"');
+  console.error('Пример: npm run remind -- "Иван" "суббота" "18:00"');
   process.exit(1);
 }
 
@@ -28,7 +28,7 @@ if (!chatId) {
 }
 
 const telegram = createTelegramClient(token);
-const text = buildReminderMessage(name, whenText);
+const text = buildReminderMessage(name, day, time);
 
 try {
   await telegram.sendMessage(chatId, text);
